@@ -128,7 +128,7 @@ def test_execute_is_text_then_tool_exactly_once_and_writes_v2_artifact(
     assert summary["status"] == "complete"
     assert summary["attemptedCalls"] == 2
     assert stat.S_IMODE(output.stat().st_mode) == 0o600
-    parsed = migration._read_probe(output)
+    parsed = runner.read_probe_artifact(output)
     assert parsed["schemaVersion"] == 2
     assert parsed["sourceSnapshotSha256"] == binding.snapshot
     assert parsed["providerEvidence"] == [

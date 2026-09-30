@@ -691,14 +691,33 @@ def _artifact_bytes(artifact: Mapping[str, Any]) -> bytes:
         != digest
     ):
         raise RunnerFailure("blocked-artifact")
-    try:
-        _migration._validate_probe(document)
-    except Exception:
-        raise RunnerFailure("blocked-artifact") from None
     encoded = _migration._canonical(document, "blocked-artifact") + b"\n"
     if len(encoded) > MAX_ARTIFACT_BYTES:
         raise RunnerFailure("blocked-artifact")
     return encoded
+
+
+def read_probe_artifact(path: str | os.PathLike[str]) -> dict[str, Any]:
+    """Read back a written v2 probe artifact under this module's own contract.
+
+    ``omp_provider_migration._validate_probe`` validates a different document:
+    its migration probe carries ``_XUANJU_PROBE_MODELS`` x ``_XUANJU_PROBE_MODES``
+    (five models, ten observations) with migration observation fields. This
+    runner's artifact is a single-model, two-observation record, so a completed
+    artifact is not — and cannot be — readable by that validator. The writer
+    used to call it anyway, which made every write fail with blocked-artifact.
+    """
+    try:
+        raw = Path(path).read_bytes()
+        parsed = json.loads(raw.decode("utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        raise RunnerFailure("blocked-artifact") from None
+    if not isinstance(parsed, dict):
+        raise RunnerFailure("blocked-artifact")
+    # Re-validating through the writer's own contract proves the round trip.
+    if _artifact_bytes(parsed) != raw:
+        raise RunnerFailure("blocked-artifact")
+    return parsed
 
 
 def _secure_parent(path: Path) -> None:
