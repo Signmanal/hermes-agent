@@ -1085,7 +1085,7 @@ def test_fork_child_unexpected_exception_emits_terminal_crash(
     binding: runner._Binding,
 ) -> None:
     monkeypatch.setattr(
-        runner.sys, "flags", SimpleNamespace(isolated=True, dont_write_bytecode=True)
+        runner.sys, "flags", _fake_flags(isolated=True, dont_write_bytecode=True)
     )
 
     def crash(_source_db: str | os.PathLike[str]) -> runner._Binding:
@@ -1181,11 +1181,30 @@ def test_failed_invalidation_removes_reserved_artifact(
     assert reservation.descriptor == -1
 
 
+def _fake_flags(**overrides: Any) -> SimpleNamespace:
+    """A COMPLETE stand-in for ``sys.flags`` with selected fields overridden.
+
+    A partial fake is not safe: importlib's verbose-import logging reads
+    ``sys.flags.verbose``, and traceback's name-suggestion path imports
+    ``_suggestions``, so any lazily imported module raises AttributeError while
+    a two-field fake is installed. That AttributeError is swallowed by the
+    runner's broad ``except Exception`` and reported as ``blocked-runner``,
+    masking the status the test is actually asserting on.
+    """
+    values: dict[str, Any] = {
+        name: getattr(runner.sys.flags, name)
+        for name in dir(runner.sys.flags)
+        if not name.startswith("_")
+    }
+    values.update(overrides)
+    return SimpleNamespace(**values)
+
+
 def test_nonisolated_live_invocation_fails_before_any_request(
     monkeypatch: pytest.MonkeyPatch, binding: runner._Binding
 ) -> None:
     monkeypatch.setattr(
-        runner.sys, "flags", SimpleNamespace(isolated=False, dont_write_bytecode=True)
+        runner.sys, "flags", _fake_flags(isolated=False, dont_write_bytecode=True)
     )
     calls: list[tuple[Any, ...]] = []
 
@@ -1204,7 +1223,7 @@ def test_main_nonisolated_entry_blocks_before_preflight(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        runner.sys, "flags", SimpleNamespace(isolated=False, dont_write_bytecode=False)
+        runner.sys, "flags", _fake_flags(isolated=False, dont_write_bytecode=False)
     )
     calls: list[str] = []
     emitted: list[dict[str, Any]] = []
@@ -1341,7 +1360,7 @@ def test_outer_timeout_kills_process_group_and_reaps_fork_child(
     monkeypatch: pytest.MonkeyPatch, binding: runner._Binding
 ) -> None:
     monkeypatch.setattr(
-        runner.sys, "flags", SimpleNamespace(isolated=True, dont_write_bytecode=True)
+        runner.sys, "flags", _fake_flags(isolated=True, dont_write_bytecode=True)
     )
     monkeypatch.setattr(runner, "PROCESS_TIMEOUT_SECONDS", 0.05)
     monkeypatch.setattr(runner, "REAP_TIMEOUT_SECONDS", 0.2)

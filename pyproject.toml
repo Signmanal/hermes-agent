@@ -503,6 +503,10 @@ web = [
   "starlette==1.3.1",
   "python-multipart==0.0.32",
 ]
+# `hermes model-sync` parses CC Switch / OMP YAML. Only that workflow needs
+# PyYAML, so it lives in an opt-in extra that PM prepares at first use instead
+# of in every session.
+model-sync = ["pyyaml==6.0.3"]
 all = [
   # Policy (2026-05-12): `[all]` includes only extras that genuinely
   # CAN'T be prepared on demand by PM — i.e. things every
@@ -549,6 +553,10 @@ dev = [
   "ty==0.0.82",
   "ruff==0.15.10",
   "setuptools==83.0.0",
+  # tools/cc_switch_* and tools/omp_* (the `hermes model-sync` workflow) parse
+  # CC Switch / OMP YAML, and the test suite imports them directly, so dev and
+  # test environments need PyYAML even though the core runtime does not.
+  "pyyaml==6.0.3",
 ] # starlette: CVE-2026-48710; setuptools: 83 (torch >=2.13 requires setuptools 83)
 # Native launcher and provider-catalog E2E dependencies belong in the test
 # environment, not the core runtime. Keep the Anthropic SDK at the same

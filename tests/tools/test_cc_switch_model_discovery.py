@@ -27,7 +27,15 @@ DY_SECRET = "marker-dy-discovery-token"
 XUANJU_SECRET = "marker-xuanju-discovery-token"
 DY_ENDPOINT = "https://dy.discovery.test/v1"
 XUANJU_ENDPOINT = "https://xuanju.discovery.test/explicit/base"
-_TEST_TEMP_ROOT = Path(__file__).resolve().parents[2]
+# The discovery runner opens each ancestor of an input path one level at a time
+# with O_NOFOLLOW and refuses a group/world-writable directory. So the fixture
+# root must (a) sit OUTSIDE the Hermes home (tests/home_io_guard.py rejects I/O
+# against the real home, and the checkout lives at ~/.hermes/hermes-agent), and
+# (b) have an all-user-owned, non-world-writable ancestry with no symlinks.
+# ~/.cache is user-owned 0755; the world-writable /private/var/tmp and the
+# symlinked /var, /tmp are both rejected.
+_TEST_TEMP_ROOT = Path.home() / ".cache"
+_TEST_TEMP_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
 
 
 class _BytesStream(httpx.AsyncByteStream):
