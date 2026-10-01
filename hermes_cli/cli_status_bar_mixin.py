@@ -7,6 +7,7 @@ inside each method (``from cli import ...``) — never at module load time (impo
 
 from __future__ import annotations
 
+import os
 import errno
 import shutil
 import threading
@@ -206,6 +207,13 @@ class CLIStatusBarMixin:
             model_short = model_short[:-5]
         if len(model_short) > 26:
             model_short = f"{model_short[:23]}..."
+        reasoning_config = getattr(self, "reasoning_config", None)
+        if not isinstance(reasoning_config, dict):
+            reasoning_effort = "medium"
+        elif reasoning_config.get("enabled") is False:
+            reasoning_effort = "none"
+        else:
+            reasoning_effort = str(reasoning_config.get("effort") or "medium")
 
         prompt_start = getattr(self, "_prompt_start_time", None)
         turn_live = prompt_start is not None
@@ -213,6 +221,8 @@ class CLIStatusBarMixin:
         snapshot = {
             "model_name": model_name,
             "model_short": model_short,
+            "reasoning_effort": reasoning_effort,
+            "fast": getattr(self, "service_tier", None) == "priority",
             "duration": format_duration_compact(elapsed_seconds),
             "session_title": self._get_status_bar_session_title(),
             "prompt_elapsed": self._format_prompt_elapsed(
@@ -250,7 +260,9 @@ class CLIStatusBarMixin:
             if _fields is not None and "git_branch" in _fields:
                 from hermes_cli.status_bar_git import current_git_branch
 
-                snapshot["git_branch"] = current_git_branch()
+                terminal_cwd = os.getenv("TERMINAL_CWD")
+                git_cwd = terminal_cwd if terminal_cwd and os.path.isdir(terminal_cwd) else os.getcwd()
+                snapshot["git_branch"] = current_git_branch(git_cwd)
         except Exception:
             pass
 
@@ -995,9 +1007,9 @@ class CLIStatusBarMixin:
         """Visible status-bar fields from ``display.status_bar.fields`` (module-level
         ``CLI_CONFIG``; no per-render YAML parse). ``None`` = not customized, show everything.
 
-        Fields: model, context_detail, context_pct, cache_hit, latency, tps, compressions,
-        bg_tasks, bg_processes, bg_subagents, goal, git_branch (opt-in only), duration,
-        prompt_elapsed, idle_since, focus, yolo, stash, battery, title, total_tokens
+        Fields: model, reasoning, fast, context_detail, context_pct, cache_hit, latency, tps,
+        compressions, bg_tasks, bg_processes, bg_subagents, goal, git_branch (opt-in only),
+        duration, prompt_elapsed, idle_since, focus, yolo, stash, battery, title, total_tokens
         (opt-in only). Order is fixed; the config controls visibility only.
         """
         from cli import CLI_CONFIG
@@ -1053,6 +1065,12 @@ class CLIStatusBarMixin:
             percent = snapshot["context_percent"]
             mark = "~" if snapshot.get("context_estimated") else ""
             percent_label = f"{mark}{percent}%" if percent is not None else "--"
+            if wide:
+                add("reasoning", _STRONG, f"🧠 {snapshot['reasoning_effort']}")
+                if snapshot["fast"]:
+                    add("fast", _STRONG, "⚡ fast")
+                if snapshot["git_branch"]:
+                    add("git_branch", _STRONG, f"git:{snapshot['git_branch']}")
             if wide and _ok("context_detail"):
                 if snapshot["context_length"]:
                     ctx_total = _format_context_length(snapshot["context_length"])
@@ -1085,9 +1103,6 @@ class CLIStatusBarMixin:
             add_count("bg_subagents", "active_background_subagents", "⛓")
         if goal_segment:
             add("goal", _STRONG, goal_segment)
-        git_branch = snapshot.get("git_branch") or ""
-        if git_branch:
-            add("git_branch", _DIM, f"⎇ {git_branch}")
         if not narrow:
             add("duration", _DIM, duration_label)
         if wide:
