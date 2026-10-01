@@ -9,7 +9,11 @@ import { rehashPayloadDigests } from './payload-digests.mjs'
 export function createMacSigner(policy) {
   return async (opts, packager) => {
     const target = opts.platform === 'mas' ? (opts.type === 'development' ? 'mas-dev' : 'mas') : 'mac'
-    const optionsForFile = await packager.helper.getOptionsForFile(opts.app, target, policy)
+    // app-builder-lib 27.0.0-alpha.9 added the resolved signing identity as a 4th argument; it only
+    // feeds the ad-hoc (`sign.identity: "-"`) entitlement branch. buildSignOptions hands the custom
+    // signer a string (`identity.hash || identity.name`), so map just that case back to an Identity.
+    const identity = opts.identity === '-' ? { name: '-' } : null
+    const optionsForFile = await packager.helper.getOptionsForFile(opts.app, target, policy, identity)
     const inheritedIgnore = opts.ignore
     const { sign } = await import('@electron/osx-sign')
     await sign({
