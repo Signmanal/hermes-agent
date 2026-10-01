@@ -102,9 +102,12 @@ describe.skipIf(onWindows)('execFileNoThrow with daemon-style children', () => {
 
     // The shell exits in a few ms. resolveOnExit lets us return on exit
     // (code 0) instead of waiting for the orphaned sleeper to release
-    // stdio. Should be well under 200ms even on slow CI.
+    // stdio. Assert it settles well before the 2000ms timeout above, which is
+    // what failing resolveOnExit would cost; the spawn itself is the other half
+    // of the elapsed time and was measured up to ~700ms on a loaded machine, so
+    // a sub-500ms budget only ever tested the host's scheduling luck.
     expect(result.code).toBe(0)
-    expect(elapsed).toBeLessThan(500)
+    expect(elapsed).toBeLessThan(1500)
   })
 
   it("still surfaces the right code when resolveOnExit'd child exits non-zero", async () => {
