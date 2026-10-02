@@ -1069,8 +1069,6 @@ class CLIStatusBarMixin:
                 add("reasoning", _STRONG, f"🧠 {snapshot['reasoning_effort']}")
                 if snapshot["fast"]:
                     add("fast", _STRONG, "⚡ fast")
-                if snapshot["git_branch"]:
-                    add("git_branch", _STRONG, f"git:{snapshot['git_branch']}")
             if wide and _ok("context_detail"):
                 if snapshot["context_length"]:
                     ctx_total = _format_context_length(snapshot["context_length"])
@@ -1103,6 +1101,12 @@ class CLIStatusBarMixin:
             add_count("bg_subagents", "active_background_subagents", "⛓")
         if goal_segment:
             add("goal", _STRONG, goal_segment)
+        # Upstream's renderer (⎇ + dim), kept: the local reapply had replaced it with a
+        # str-strong "git:<branch>" segment that both duplicated it and broke the glyph
+        # contract its own test pins. Only the TERMINAL_CWD probe above is local.
+        git_branch = snapshot.get("git_branch") or ""
+        if git_branch:
+            add("git_branch", _DIM, f"⎇ {git_branch}")
         if not narrow:
             add("duration", _DIM, duration_label)
         if wide:
